@@ -5,16 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pyhrg"
 version = "0.1.0"
-description = "Python Hyperedge Replacement Grammar library"
-authors = [
-    { name = "ndronen" }
-]
-readme = "README.md"
 requires-python = ">=3.8"
-
-dependencies = [
-    "networkx"
-]
 
 [tool.setuptools.packages.find]
 where = ["."]
