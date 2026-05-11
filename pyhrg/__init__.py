@@ -1,1 +1,1 @@
-import pyhrg.hrg
+from pyhrg.hrg import Dendrogram
