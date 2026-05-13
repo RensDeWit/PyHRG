@@ -9,7 +9,8 @@ bindir = os.path.abspath(os.path.dirname(sys.argv[0]))
 libdir = os.path.dirname(bindir) + "/lib"
 sys.path.append(libdir)
 
-from pyhrg import Dendrogram
+
+from pyhrg.hrg import Dendrogram
 
 def print_status(*l):
     print("\t".join([str(x) for x in l]))

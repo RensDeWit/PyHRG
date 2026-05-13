@@ -19,7 +19,7 @@ class RandomChooser(object):
             child = self.random.choice(self.D.children(parent))
             if child in self.D.dnode_set:
                 return parent, child
-        
+
 class Dendrogram(nx.DiGraph):
     """
     """
@@ -49,7 +49,7 @@ class Dendrogram(nx.DiGraph):
         # that in the GML file the identifiers of dendrogram nodes are
         # integers instead of strings (e.g. 42 vs "_D42").
         mapping={}
-        for n,d in from_gml.nodes_iter(data=True):
+        for n,d in from_gml.nodes(data=True):
             label=d['label']
             mapping[n]=label
         from_gml=nx.relabel_nodes(from_gml, mapping)
@@ -59,7 +59,7 @@ class Dendrogram(nx.DiGraph):
         D.initialize_graph_keys()
         D.initialize_dendrogram_node_structures()
 
-        for n,d in D.dendrogram_nodes_iter(data=True):
+        for n,d in D.dendrogram_nodes(data=True):
             D.graph['L']+=d['L']
 
         return D
@@ -100,13 +100,12 @@ class Dendrogram(nx.DiGraph):
             self.number_of_graph_nodes = len(G)
             self.graph_edges=set(G.edges())
             self.graph_nodes_set=set(G.nodes())
-            self.graph_nodes_list=G.nodes()
-            self.graph_nodes_list.sort()
+            self.graph_nodes_list=sorted(G.nodes())
             self.G = nx.Graph(G)
             # When the network is stored in an edge list file, self
             # loops are required in order to preserve nodes of degree
             # 0.  Remove self loops here.
-            self.G.remove_edges_from(self.G.selfloop_edges())
+            self.G.remove_edges_from(nx.selfloop_edges(self.G))
 
     """
     """
@@ -114,8 +113,7 @@ class Dendrogram(nx.DiGraph):
         self.number_of_graph_nodes=len(self.G)
         self.graph_edges=set(self.G.edges())
         self.graph_nodes=set(self.G.nodes())
-        self.graph_nodes_list=self.G.nodes()
-        self.graph_nodes_list.sort()
+        self.graph_nodes_list=sorted(self.G.nodes())
 
     """
     """
@@ -146,48 +144,47 @@ class Dendrogram(nx.DiGraph):
         if layout == 'random':
             # Permute the graph nodes by randomly sampling all of
             # them without replacement.
-            graph_nodes=self.random.sample(self.G.nodes(), len(self.G))
-    
+            graph_nodes=self.random.sample(list(self.G.nodes()), len(self.G))
+
             # Add each graph node as a left or right child
             # of any dendrogram node that doesn't have a left
             # or right child.
-            for n,d in self.nodes(data=True):
+            for n,d in list(self.nodes(data=True)):
                 try:
-                    self.node[n]['left']
+                    self.nodes[n]['left']
                 except KeyError:
                     gnode=graph_nodes.pop()
-                    l=self.node[n]['p']-0.0000000000001
+                    l=self.nodes[n]['p']-0.0000000000001
                     self.add_node(gnode, p=l)
                     self.add_left_child(n, gnode)
-    
+
                 try:
-                    self.node[n]['right']
+                    self.nodes[n]['right']
                 except KeyError:
                     gnode=graph_nodes.pop()
-                    l=self.node[n]['p']+0.0000000000001
+                    l=self.nodes[n]['p']+0.0000000000001
                     self.add_node(gnode, p=l)
                     self.add_right_child(n, gnode)
 
         # Label each dendrogram nodes with the name of its smallest
         # child graph node.
-        sorted_graph_nodes=self.G.nodes()
-        sorted_graph_nodes.sort()
+        sorted_graph_nodes=sorted(self.G.nodes())
         for graph_node in sorted_graph_nodes:
             # Each graph node's order label is itself.
-            self.node[graph_node]['orderprop'] = graph_node
+            self.nodes[graph_node]['orderprop'] = graph_node
             parent = self.parent(graph_node)
             while parent != None:
-                if 'orderprop' not in self.node[parent]:
-                    self.node[parent]['orderprop'] = graph_node
+                if 'orderprop' not in self.nodes[parent]:
+                    self.nodes[parent]['orderprop'] = graph_node
                 parent = self.parent(parent)
 
         # Swap children to enforce order property
         for node,d in self.dendrogram_nodes(data=True):
             # If the order label of the node's left child is greater
             # than the node's order label, swap them.
-            left_child=self.node[node]['left']
-            if self.node[left_child]['orderprop'] > self.node[node]['orderprop']:
-                right_child=self.node[node]['right']
+            left_child=self.nodes[node]['left']
+            if self.nodes[left_child]['orderprop'] > self.nodes[node]['orderprop']:
+                right_child=self.nodes[node]['right']
                 self.remove_left_child(node, left_child)
                 self.remove_right_child(node, right_child)
 
@@ -199,19 +196,19 @@ class Dendrogram(nx.DiGraph):
 
         for node,d in self.dendrogram_nodes(data=True):
             e, nL, nR, p, L = self.compute_likelihood(node)
-            #self.node[node]['e'] = e
+            #self.nodes[node]['e'] = e
             d['e']=e
 
-            #self.node[node]['nL'] = nL
+            #self.nodes[node]['nL'] = nL
             d['nL']=nL
 
-            #self.node[node]['nR'] = nR
+            #self.nodes[node]['nR'] = nR
             d['nR']=nR
 
-            #self.node[node]['p'] = p
+            #self.nodes[node]['p'] = p
             d['p']=p
 
-            #self.node[node]['L'] = L
+            #self.nodes[node]['L'] = L
             d['L']=L
 
             self.graph['L']+=d['L']
@@ -235,33 +232,28 @@ class Dendrogram(nx.DiGraph):
         super(Dendrogram, self).__init__()
         super(Dendrogram, self).clear()
         #G.clear()
-        
+
     def dendrogram_nodes_iter(self, data=False):
         """
         """
         if data == True:
-            for node,d in self.nodes_iter(data=True):
+            for node,d in self.nodes(data=True):
                 if self.is_dendrogram_node(node):
                     yield node, d
         else:
-            for node in self.nodes_iter(data=False):
+            for node in self.nodes(data=False):
                 if self.is_dendrogram_node(node):
                     yield node
 
     def dendrogram_nodes(self, data=False):
-        """
-        """
-        if data == True:
-            return [(n,d) for n,d in self.dendrogram_nodes_iter(data=True)]
-        else:
-            return [n for n in self.dendrogram_nodes_iter(data=False)]
+        return list(self.dendrogram_nodes_iter(data=data))
 
     def dendrogram_edges_iter(self, data=False):
         """
         """
         if data == True:
             raise Exception("data keyword argument not yet implemented")
-        for v,w in self.edges_iter():
+        for v,w in self.edges():
             if self.is_dendrogram_node(v) and self.is_dendrogram_node(w):
                 yield v,w
 
@@ -280,13 +272,13 @@ class Dendrogram(nx.DiGraph):
         """
         # A node is a graph node if it has no children.
         try:
-            self.node[parent]['left']
+            self.nodes[parent]['left']
             return True
         except KeyError as e:
             pass
 
         try:
-            self.node[parent]['right']
+            self.nodes[parent]['right']
             return True
         except KeyError as e:
             pass
@@ -297,19 +289,19 @@ class Dendrogram(nx.DiGraph):
         """
         """
         self.add_edge(parent, child, side='left')
-        self.node[parent]['left'] = child
-    
+        self.nodes[parent]['left'] = child
+
     def add_right_child(self, parent, child):
         """
         """
         self.add_edge(parent, child, side='right')
-        self.node[parent]['right'] = child
+        self.nodes[parent]['right'] = child
 
     def remove_child(self, parent, child, side):
         """
         """
         self.remove_edge(parent, child)
-        del self.node[parent][side]
+        del self.nodes[parent][side]
 
     def remove_left_child(self, parent, child):
         """
@@ -320,45 +312,45 @@ class Dendrogram(nx.DiGraph):
         """
         """
         self.remove_child(parent, child, 'right')
-    
+
     def child_node(self, parent, side):
         """
         """
-        return self.node[parent][side]
+        return self.nodes[parent][side]
 
     def is_left_child(self, parent, child):
         try:
-            return self.node[parent]['left'] == child
+            return self.nodes[parent]['left'] == child
         except Exception:
             return False
 
     def is_right_child(self, parent, child):
         try:
-            return self.node[parent]['right'] == child
+            return self.nodes[parent]['right'] == child
         except Exception:
             return False
 
     def left_child(self, parent):
         """
         """
-        return self.node[parent]['left']
-    
+        return self.nodes[parent]['left']
+
     def right_child(self, parent):
         """
         """
-        return self.node[parent]['right']
+        return self.nodes[parent]['right']
 
     def children(self, parent):
         """
         """
         children = []
         try:
-            children.append(self.node[parent]['left'])
+            children.append(self.nodes[parent]['left'])
         except KeyError as e:
             pass
 
         try:
-            children.append(self.node[parent]['right'])
+            children.append(self.nodes[parent]['right'])
         except KeyError as e:
             pass
 
@@ -367,20 +359,20 @@ class Dendrogram(nx.DiGraph):
     def parent(self, child):
         """
         """
-        parents=self.predecessors(child)
+        parents=list(self.predecessors(child))
         try:
             return parents[0]
         except Exception as e:
             return None
-    
+
     def insert_attr(self, v, w, attr):
         """
         """
-        if self.node[v][attr] < self.node[w][attr]:
+        if self.nodes[v][attr] < self.nodes[w][attr]:
             # check if left subtree is empty
             try:
-                self.node[v]['left']
-                nextv=self.node[v]['left']
+                self.nodes[v]['left']
+                nextv=self.nodes[v]['left']
                 self.insert_attr(nextv, w, attr)
             except KeyError:
                 # make w left child
@@ -388,16 +380,16 @@ class Dendrogram(nx.DiGraph):
         else:
             # check if right subtree is empty
             try:
-                self.node[v]['right']
-                nextv=self.node[v]['right']
+                self.nodes[v]['right']
+                nextv=self.nodes[v]['right']
                 self.insert_attr(nextv, w, attr)
             except KeyError:
                 self.add_right_child(v, w)
 
     def enforce_order_property(self, node):
-        left_child=self.node[node]['left']
-        node_label=self.node[node]['orderprop']
-        left_child_label=self.node[node]['orderprop']
+        left_child=self.nodes[node]['left']
+        node_label=self.nodes[node]['orderprop']
+        left_child_label=self.nodes[node]['orderprop']
         if node_label > left_child_label:
             s=str(self)
             raise Exception("order property violated by node "+str(node) + " "+
@@ -406,8 +398,8 @@ class Dendrogram(nx.DiGraph):
                 ": "+s)
 
     def verify_nkids(self, node):
-        left=self.node[node]['nL']
-        right=self.node[node]['nR']
+        left=self.nodes[node]['nL']
+        right=self.nodes[node]['nR']
         if left+right > self.number_of_graph_nodes:
             raise Exception("wrong number of kids "+
                 "node "+str(node)+" "+
@@ -427,8 +419,8 @@ class Dendrogram(nx.DiGraph):
         """
         parent = self.parent(child)
 
-        parent_right_child = self.node[parent]['right']
-        child_right_child = self.node[child]['right']
+        parent_right_child = self.nodes[parent]['right']
+        child_right_child = self.nodes[child]['right']
 
         self.remove_right_child(parent, parent_right_child)
         self.remove_right_child(child, child_right_child)
@@ -452,13 +444,13 @@ class Dendrogram(nx.DiGraph):
         2) Swap right edges of child and parent
         3) Swap left and right edges of parent
         """
-        parent = self.parent(child) 
+        parent = self.parent(child)
 
-        parent_left_child = self.node[parent]['left']
-        parent_right_child = self.node[parent]['right']
+        parent_left_child = self.nodes[parent]['left']
+        parent_right_child = self.nodes[parent]['right']
 
-        child_left_child = self.node[child]['left']
-        child_right_child = self.node[child]['right']
+        child_left_child = self.nodes[child]['left']
+        child_right_child = self.nodes[child]['right']
 
         # Swap left and right edges of child
         self.remove_left_child(child, child_left_child)
@@ -467,8 +459,8 @@ class Dendrogram(nx.DiGraph):
         self.add_right_child(child, child_left_child)
 
         # Update local variables
-        child_left_child = self.node[child]['left']
-        child_right_child = self.node[child]['right']
+        child_left_child = self.nodes[child]['left']
+        child_right_child = self.nodes[child]['right']
 
         # Swap right edges of child and parent
         self.remove_right_child(parent, parent_right_child)
@@ -477,8 +469,8 @@ class Dendrogram(nx.DiGraph):
         self.add_right_child(child, parent_right_child)
 
         # Update local variables
-        child_right_child = self.node[child]['right']
-        parent_right_child = self.node[parent]['right']
+        child_right_child = self.nodes[child]['right']
+        parent_right_child = self.nodes[parent]['right']
 
         # Swap left and right edges of parent
         self.remove_left_child(parent, parent_left_child)
@@ -488,7 +480,7 @@ class Dendrogram(nx.DiGraph):
 
         # If the child's left and right children don't adhere
         # to the order property, swap them.
-        if self.node[child_right_child]['orderprop'] < self.node[child_right_child]['orderprop']:
+        if self.nodes[child_right_child]['orderprop'] < self.nodes[child_right_child]['orderprop']:
             self.remove_left_child(child, child_left_child)
             self.remove_right_child(child, child_right_child)
             self.add_left_child(child, child_right_child)
@@ -498,7 +490,7 @@ class Dendrogram(nx.DiGraph):
             child_right_child = child_left_child
 
         # Set the chlid's order label to the order label of its left child.
-        self.node[child]['orderprop'] = self.node[child_left_child]['orderprop']
+        self.nodes[child]['orderprop'] = self.nodes[child_left_child]['orderprop']
 
         self.enforce_order_property(parent)
         self.enforce_order_property(child)
@@ -512,13 +504,13 @@ class Dendrogram(nx.DiGraph):
         2) Swap right edges of child and parent
         3) Swap left and right edges of child
         """
-        parent = self.parent(child) 
+        parent = self.parent(child)
 
-        parent_left_child = self.node[parent]['left']
-        parent_right_child = self.node[parent]['right']
+        parent_left_child = self.nodes[parent]['left']
+        parent_right_child = self.nodes[parent]['right']
 
-        child_left_child = self.node[child]['left']
-        child_right_child = self.node[child]['right']
+        child_left_child = self.nodes[child]['left']
+        child_right_child = self.nodes[child]['right']
 
         # Swap left and right edges of parent
         self.remove_left_child(parent, parent_left_child)
@@ -527,8 +519,8 @@ class Dendrogram(nx.DiGraph):
         self.add_right_child(parent, parent_left_child)
 
         # Update local variables
-        parent_left_child = self.node[parent]['left']
-        parent_right_child = self.node[parent]['right']
+        parent_left_child = self.nodes[parent]['left']
+        parent_right_child = self.nodes[parent]['right']
 
         # Swap right edges of child and parent
         self.remove_right_child(parent, parent_right_child)
@@ -537,8 +529,8 @@ class Dendrogram(nx.DiGraph):
         self.add_right_child(child, parent_right_child)
 
         # Update local variables
-        parent_right_child = self.node[parent]['right']
-        child_right_child = self.node[child]['right']
+        parent_right_child = self.nodes[parent]['right']
+        child_right_child = self.nodes[child]['right']
 
         # Swap left and right edges of child
         self.remove_left_child(child, child_left_child)
@@ -549,7 +541,7 @@ class Dendrogram(nx.DiGraph):
         child_right_child = child_left_child
 
         # Set the child's order label to the order label of its left child.
-        self.node[child]['orderprop'] = self.node[child_left_child]['orderprop']
+        self.nodes[child]['orderprop'] = self.nodes[child_left_child]['orderprop']
 
         self.enforce_order_property(parent)
         self.enforce_order_property(child)
@@ -562,12 +554,12 @@ class Dendrogram(nx.DiGraph):
         1) Swap left and right edges of parent
         2) Swap left edge of child and right edge of parent
         """
-        parent = self.parent(child) 
+        parent = self.parent(child)
 
-        parent_left_child = self.node[parent]['left']
-        parent_right_child = self.node[parent]['right']
+        parent_left_child = self.nodes[parent]['left']
+        parent_right_child = self.nodes[parent]['right']
 
-        child_left_child = self.node[child]['left']
+        child_left_child = self.nodes[child]['left']
 
         # Swap left and right edges of parent
         self.remove_left_child(parent, parent_left_child)
@@ -576,7 +568,7 @@ class Dendrogram(nx.DiGraph):
         self.add_right_child(parent, parent_left_child)
 
         # Update local variables
-        parent_right_child = self.node[parent]['right']
+        parent_right_child = self.nodes[parent]['right']
 
         # Swap left edge of child and right edge of parent
         self.remove_left_child(child, child_left_child)
@@ -584,7 +576,7 @@ class Dendrogram(nx.DiGraph):
         self.add_left_child(child, parent_right_child)
         self.add_right_child(parent, child_left_child)
 
-        self.node[child]['orderprop'] = self.node[parent]['orderprop']
+        self.nodes[child]['orderprop'] = self.nodes[parent]['orderprop']
 
         self.enforce_order_property(parent)
         self.enforce_order_property(child)
@@ -597,12 +589,12 @@ class Dendrogram(nx.DiGraph):
         1) Swap left edge of child and right edge of parent
         2) Swap left and right edges of parent
         """
-        parent = self.parent(child) 
+        parent = self.parent(child)
 
-        parent_left_child = self.node[parent]['left']
-        parent_right_child = self.node[parent]['right']
+        parent_left_child = self.nodes[parent]['left']
+        parent_right_child = self.nodes[parent]['right']
 
-        child_left_child = self.node[child]['left']
+        child_left_child = self.nodes[child]['left']
 
         # Swap left edge of child and right edge of parent
         self.remove_left_child(child, child_left_child)
@@ -611,8 +603,8 @@ class Dendrogram(nx.DiGraph):
         self.add_right_child(parent, child_left_child)
 
         # Update local variables
-        parent_right_child = self.node[parent]['right']
-        child_left_child = self.node[child]['left']
+        parent_right_child = self.nodes[parent]['right']
+        child_left_child = self.nodes[child]['left']
 
         # Swap left and right edges of parent
         self.remove_left_child(parent, parent_left_child)
@@ -632,22 +624,22 @@ class Dendrogram(nx.DiGraph):
         2) Swap right edge of child and right edge of parent
         3) Swap left and right edges of child
         """
-        parent = self.parent(child) 
+        parent = self.parent(child)
 
-        parent_left_child = self.node[parent]['left']
-        parent_right_child = self.node[parent]['right']
+        parent_left_child = self.nodes[parent]['left']
+        parent_right_child = self.nodes[parent]['right']
 
-        child_left_child = self.node[child]['left']
-        child_right_child = self.node[child]['right']
+        child_left_child = self.nodes[child]['left']
+        child_right_child = self.nodes[child]['right']
 
-        # Swap left and right edges of parent 
+        # Swap left and right edges of parent
         self.remove_left_child(parent, parent_left_child)
         self.remove_right_child(parent, parent_right_child)
         self.add_left_child(parent, parent_right_child)
         self.add_right_child(parent, parent_left_child)
 
         # Update local variables
-        parent_right_child = self.node[parent]['right']
+        parent_right_child = self.nodes[parent]['right']
 
         # Swap right edge of child and right edge of parent
         self.remove_right_child(child, child_right_child)
@@ -656,8 +648,8 @@ class Dendrogram(nx.DiGraph):
         self.add_right_child(parent, child_right_child)
 
         # Update local variables
-        child_right_child = self.node[child]['right']
-        
+        child_right_child = self.nodes[child]['right']
+
         # Swap left and right edges of child
         self.remove_left_child(child, child_left_child)
         self.remove_right_child(child, child_right_child)
@@ -676,13 +668,13 @@ class Dendrogram(nx.DiGraph):
         2) Swap right edge of child and right edge of parent
         3) Swap left and right edges of parent
         """
-        parent = self.parent(child) 
+        parent = self.parent(child)
 
-        parent_left_child = self.node[parent]['left']
-        parent_right_child = self.node[parent]['right']
+        parent_left_child = self.nodes[parent]['left']
+        parent_right_child = self.nodes[parent]['right']
 
-        child_left_child = self.node[child]['left']
-        child_right_child = self.node[child]['right']
+        child_left_child = self.nodes[child]['left']
+        child_right_child = self.nodes[child]['right']
 
         # Swap left and right edges of child
         self.remove_left_child(child, child_left_child)
@@ -691,8 +683,8 @@ class Dendrogram(nx.DiGraph):
         self.add_right_child(child, child_left_child)
 
         # Update local variables
-        child_left_child = self.node[child]['left']
-        child_right_child = self.node[child]['right']
+        child_left_child = self.nodes[child]['left']
+        child_right_child = self.nodes[child]['right']
 
         # Swap right edge of child and right edge of parent
         self.remove_right_child(child, child_right_child)
@@ -701,10 +693,10 @@ class Dendrogram(nx.DiGraph):
         self.add_right_child(parent, child_right_child)
 
         # Update local variables
-        parent_right_child = self.node[parent]['right']
-        child_right_child = self.node[child]['right']
+        parent_right_child = self.nodes[parent]['right']
+        child_right_child = self.nodes[child]['right']
 
-        # Swap left and right edges of parent 
+        # Swap left and right edges of parent
         self.remove_left_child(parent, parent_left_child)
         self.remove_right_child(parent, parent_right_child)
         self.add_left_child(parent, parent_right_child)
@@ -732,7 +724,7 @@ class Dendrogram(nx.DiGraph):
         else:
             raise Exception("node "+str(child)+" is neither left " +
                 "nor right child of "+str(parent))
-    
+
         move_type=''
         r=self.random.random()
         if r > 0.5:
@@ -748,7 +740,7 @@ class Dendrogram(nx.DiGraph):
 
         if debug:
             print("attempting "+doname+" on "+str((parent,child)))
-    
+
         dofunc(child)
 
         potential = self.compute_potential_likelihood(parent, child, debug=False)
@@ -803,7 +795,7 @@ class Dendrogram(nx.DiGraph):
     def validate_likelihood(self):
         l=0
         ls=[]
-        for n,d in self.dendrogram_nodes_iter(data=True):
+        for n,d in self.dendrogram_nodes(data=True):
             ls.append(d['L'])
             l+=d['L']
         diff=abs(self.graph['L']-l)
@@ -813,18 +805,18 @@ class Dendrogram(nx.DiGraph):
                 "l "+str(l) + " " +
                 "ls "+str(ls) +"\n" +
                 "after  move "+str(self))
-            
+
     def update_likelihood(self, parent, child, potential, debug=False):
-        pprevL=self.node[parent]['L']
-        cprevL=self.node[child]['L']
+        pprevL=self.nodes[parent]['L']
+        cprevL=self.nodes[child]['L']
 
-        self.node[parent]['L']=potential['pnewL']
-        self.node[parent]['e']=potential['pnewE']
-        self.node[parent]['p']=potential['pnewP']
+        self.nodes[parent]['L']=potential['pnewL']
+        self.nodes[parent]['e']=potential['pnewE']
+        self.nodes[parent]['p']=potential['pnewP']
 
-        self.node[child]['L']=potential['cnewL']
-        self.node[child]['e']=potential['cnewE']
-        self.node[child]['p']=potential['cnewP']
+        self.nodes[child]['L']=potential['cnewL']
+        self.nodes[child]['e']=potential['cnewE']
+        self.nodes[child]['p']=potential['cnewP']
 
         self.graph['L']=potential['newL']
         self.deltaL=potential['deltaL']
@@ -839,7 +831,7 @@ class Dendrogram(nx.DiGraph):
 
     def compute_potential_likelihood(self, parent, child, debug=False):
         potential = {}
-        pprevL=self.node[parent]['L']
+        pprevL=self.nodes[parent]['L']
         pnewE,pnewNL,pnewNR,pnewP,pnewL=self.compute_likelihood(parent)
         potential['pnewE'] = pnewE
         potential['pnewNL'] = pnewNL
@@ -847,7 +839,7 @@ class Dendrogram(nx.DiGraph):
         potential['pnewP'] = pnewP
         potential['pnewL'] = pnewL
 
-        cprevL=self.node[child]['L']
+        cprevL=self.nodes[child]['L']
         cnewE,cnewNL,cnewNR,cnewP,cnewL=self.compute_likelihood(child)
         potential['cnewE'] = cnewE
         potential['cnewNL'] = cnewNL
@@ -890,7 +882,7 @@ class Dendrogram(nx.DiGraph):
             p = 1.0
         else:
             p = e/float(nL*nR)
-        
+
         try:
             L = self.likelihood(nL, nR, e, p, debug=debug)
             return e, nL, nR, p, L
@@ -910,7 +902,7 @@ class Dendrogram(nx.DiGraph):
             print("likelihood "+" ".join([str(x) for x in [nL, nR, e, p]]))
 
         if e == 0:
-            # If the number of edges with a given lowest common ancestor 
+            # If the number of edges with a given lowest common ancestor
             # in the dendrogram is 0, then p=0/nL*nR, and evaluating
             # the liklihood function results in a ValueError from math.log.
             # We do not want to be biased towards assortative or disassortative
@@ -918,9 +910,9 @@ class Dendrogram(nx.DiGraph):
             # and right subtrees indicates a lack of fit.
             return 0.0
         elif e == nL*nR:
-            # This is the other extreme.  The dendrogram's subtree fits the 
+            # This is the other extreme.  The dendrogram's subtree fits the
             # subgraph perfectly.  As with the case where e is 0, evaluating
-            # the likelihood function in this case would result in a 
+            # the likelihood function in this case would result in a
             # ValueError.  To avoid that, return the smallest possible float.
             return 0.0
         else:
@@ -929,16 +921,16 @@ class Dendrogram(nx.DiGraph):
     def likelihood_E_naive(self, parent, debug=False):
         """
         E_i is the number of edges in G that have lowest common
-        ancestor i in D.  
+        ancestor i in D.
         """
         # Do a depth-first search of the dendrogram starting at parent
-        # to find all the graph nodes with the lowest common ancestor 
+        # to find all the graph nodes with the lowest common ancestor
         # given by parent.  If a node has no successors, it is a graph
         # node, so count its edges.  We don't want to overcount edges,
         # so keep them in a set.
 
-        left_child=self.node[parent]['left']
-        right_child=self.node[parent]['right']
+        left_child=self.nodes[parent]['left']
+        right_child=self.nodes[parent]['right']
 
 
         left_graph_nodes=None
@@ -964,32 +956,32 @@ class Dendrogram(nx.DiGraph):
 
         for left in left_graph_nodes:
             for right in right_graph_nodes:
-                if left in self.G.edge[right]:
+                if self.G.has_edge(left, right):
                     e.add(tuple((left,right)))
 
         return len(e)
 
     def get_number_of_leaf_nodes(self, parent, side):
         key='n'+side
-        return self.node[parent][key]
+        return self.nodes[parent][key]
 
     def set_number_of_leaf_nodes(self, parent, side, n):
         key='n'+side
-        self.node[parent][key] = n
+        self.nodes[parent][key] = n
 
     def add_to_number_of_leaf_nodes(self, parent, side, n):
         """
         """
         key='n'+side
-        if key in self.node[parent]:
-            self.node[parent][key] += n
+        if key in self.nodes[parent]:
+            self.nodes[parent][key] += n
         else:
-            self.node[parent][key] = n
+            self.nodes[parent][key] = n
 
     def compute_initial_numbers_of_leaf_nodes(self, G):
         """
         """
-        for graph_node in G.nodes_iter():
+        for graph_node in G.nodes():
             node=graph_node
             while True:
                 parent=self.parent(node)
@@ -1001,11 +993,11 @@ class Dendrogram(nx.DiGraph):
                 else:
                     # node contributes to right count
                     self.add_to_number_of_leaf_nodes(parent, 'R', 1)
-        
+
                 node=parent
 
     def update_numbers_of_leaf_nodes(self, parent):
-        left_child=self.node[parent]['left']
+        left_child=self.nodes[parent]['left']
         left_count = 0
 
         if self.is_graph_node(left_child):
@@ -1018,7 +1010,7 @@ class Dendrogram(nx.DiGraph):
 
         self.set_number_of_leaf_nodes(parent, 'L', left_count)
 
-        right_child=self.node[parent]['right']
+        right_child=self.nodes[parent]['right']
         right_count = 0
 
         if self.is_graph_node(right_child):
@@ -1038,7 +1030,7 @@ class Dendrogram(nx.DiGraph):
         """
         L_i is the number of leaves in the left subtree rooted at i.
         """
-        left_child=self.node[parent]['left']
+        left_child=self.nodes[parent]['left']
         return len(self.graph_nodes_below(left_child))
 
     def likelihood_R_fast(self, parent):
@@ -1048,7 +1040,7 @@ class Dendrogram(nx.DiGraph):
         """
         R_i is the number of leaves in the right subtree rooted at i.
         """
-        right_child=self.node[parent]['right']
+        right_child=self.nodes[parent]['right']
         return len(self.graph_nodes_below(right_child))
 
     def graph_nodes_below(self, parent):
@@ -1056,8 +1048,8 @@ class Dendrogram(nx.DiGraph):
         Find the graph (leaf) nodes below the given dendrogram node.
         """
         try:
-            left_child = self.node[parent]['left']
-            right_child = self.node[parent]['right']
+            left_child = self.nodes[parent]['left']
+            right_child = self.nodes[parent]['right']
 
             graph_nodes = set()
             nodes = set([left_child, right_child])
@@ -1065,12 +1057,12 @@ class Dendrogram(nx.DiGraph):
             while len(nodes) > 0:
                 node = nodes.pop()
                 try:
-                    left = self.node[node]['left']
-                    right = self.node[node]['right']
+                    left = self.nodes[node]['left']
+                    right = self.nodes[node]['right']
                     nodes.update(set([left, right]))
                 except KeyError:
                     graph_nodes.add(node)
-    
+
             return graph_nodes
         except KeyError:
             return set([parent])
@@ -1107,13 +1099,13 @@ class Dendrogram(nx.DiGraph):
         H = nx.Graph()
         H.add_nodes_from(self.G.nodes())
 
-        nodes = H.nodes()
+        nodes = list(H.nodes())
 
         for i,u in enumerate(nodes):
             for j in range(i + 1, len(nodes)):
                 v = nodes[j]
                 lub = self.least_upper_bound(u, v)
-                p = self.node[lub]['p']
+                p = self.nodes[lub]['p']
                 if random.random() < p:
                     H.add_edge(u, v)
 
@@ -1130,7 +1122,7 @@ class Dendrogram(nx.DiGraph):
             self.split_histogram[split] += 1
         self.num_samples += 1
 
-    
+
     def build_split(self, dnode):
         """
 	    This method builds the splits that ultimately allow one to
@@ -1181,8 +1173,8 @@ class Dendrogram(nx.DiGraph):
     def get_dendrogram_height(self, root='_D0'):
         def _get_dendrogram_height(node):
             if str(node).startswith('_D'):
-                lheight = _get_dendrogram_height(self.node[node]['left'])
-                rheight = _get_dendrogram_height(self.node[node]['right'])
+                lheight = _get_dendrogram_height(self.nodes[node]['left'])
+                rheight = _get_dendrogram_height(self.nodes[node]['right'])
                 return max(lheight, rheight) + 1
             else:
                 # Leaf node
@@ -1250,9 +1242,9 @@ class Dendrogram(nx.DiGraph):
             else:
                 lrorder[node] = lrindex
                 lrindex += 1
-    
+
         # Traverse the tree depth-first, following left edges before
-        # right edges.  
+        # right edges.
 
         def _label_dendrogram_nodes(D, node, height, state):
             if str(node).startswith('_D'):
@@ -1260,9 +1252,9 @@ class Dendrogram(nx.DiGraph):
                 left = D.node[node]['left']
                 right = D.node[node]['right']
                 lheight = _label_dendrogram_nodes(
-                    D, self.node[node]['left'], height, state)
+                    D, self.nodes[node]['left'], height, state)
                 rheight = _label_dendrogram_nodes(
-                    D, self.node[node]['right'], height, state)
+                    D, self.nodes[node]['right'], height, state)
                 curheight = max(lheight, rheight) + 1
                 if curheight == height:
                     state[node] = state['label-counter']
@@ -1271,7 +1263,7 @@ class Dendrogram(nx.DiGraph):
                 return curheight
             else:
                 return 0
-            
+
         # Get the height of the dendrogram
         height = self.get_dendrogram_height()
 
@@ -1287,42 +1279,42 @@ class Dendrogram(nx.DiGraph):
 
         for h in range(1, height+1):
             _label_dendrogram_nodes(self, root, h, state)
-    
+
         # A list of lists.  Eventually, the ith list in tmp becomes the
         # ith row in the linkage matrix.
         tmp = []
-    
+
         def build_linkage_matrix_rows(node, state):
             if str(node).startswith('_D'):
                 # Get the left and right children.
-                left = self.node[node]['left']
-                right = self.node[node]['right']
-    
+                left = self.nodes[node]['left']
+                right = self.nodes[node]['right']
+
                 # Get their heights and leaf counts.
                 left_height, left_n = build_linkage_matrix_rows(left, state)
-    
+
                 left_id = ''
                 if str(left).startswith('_D'):
                     left_id = state[left]
                 else:
                     left_id = lrorder[left]
-    
+
                 right_height, right_n = build_linkage_matrix_rows(right, state)
-    
+
                 right_id = ''
                 if str(right).startswith('_D'):
                     right_id = state[right]
                 else:
                     right_id = lrorder[right]
-    
+
                 height = max(left_height, right_height) + 1
                 n = left_n + right_n
-    
+
                 if height > len(tmp):
                     tmp.append([])
-    
+
                 tmp[height - 1].append([left_id, right_id, height, n])
-    
+
                 return height, n
             else:
                 height = 0
@@ -1330,15 +1322,15 @@ class Dendrogram(nx.DiGraph):
                 return height, n
 
         build_linkage_matrix_rows(root, state)
-    
+
         ntmp = 0
         for links in tmp:
             ntmp += len(links)
-    
+
         L = np.zeros(shape=(ntmp, 4))
-    
+
         linki = 0
-    
+
         for links in tmp:
             for link in links:
                 L[linki, :] = link
@@ -1348,7 +1340,7 @@ class Dendrogram(nx.DiGraph):
         for key in lrorder.keys():
             val = lrorder[key]
             labels[val] = key
-    
+
         return L, labels, state['probabilities']
 
 
@@ -1367,7 +1359,7 @@ class ConsensusDendrogramBuilder(object):
 
         for hist in histograms:
             for split in hist.keys():
-                try: 
+                try:
                     merged[split] += hist[split]
                 except KeyError:
                     merged[split] = hist[split]
@@ -1435,7 +1427,7 @@ class ConsensusDendrogramBuilder(object):
 
         consensus = nx.DiGraph()
 
-        ################################################################# 
+        #################################################################
         # To build the majority consensus tree, we do the following:
         #
         # For each possible number of Ms in the split string (a
@@ -1444,7 +1436,7 @@ class ConsensusDendrogramBuilder(object):
         # the tree, and connect the oldest ancestor of each C to that
         # node (at most once). Then, we update our list of oldest
         # ancestors to reflect this new join, and proceed.
-        ################################################################# 
+        #################################################################
 
         cnode_id = 0
         cnode = '_C' + str(cnode_id)
@@ -1476,8 +1468,8 @@ class ConsensusDendrogramBuilder(object):
                         # This is equivalent to
                         # p = consensus.predecessors(graph_node)[0]
                         p = ancestors[graph_node]
-                        
-                        predecessors = consensus.predecessors(p)
+
+                        predecessors = list(consensus.predecessors(p))
 
                         if len(predecessors) > 1:
                             raise Exception('node ' + str(p) +
@@ -1489,7 +1481,7 @@ class ConsensusDendrogramBuilder(object):
 
                         except IndexError:
                             pprime = None
-                        
+
                         # Let the parent of this graph node be P and let
                         # the parent of P be P'.  If P' is not the current
                         # dendrogram node (the variable cnode), then change P
@@ -1509,7 +1501,7 @@ class ConsensusDendrogramBuilder(object):
                     # current ancestor of graph_node; add the edge
                     # (cnode, graph_node).
                     ancestors[graph_node] = cnode
-                
+
                 cnode_id += 1
                 cnode = '_C'+str(cnode_id)
 
@@ -1518,12 +1510,12 @@ class ConsensusDendrogramBuilder(object):
     def consensus_tree_as_string(self, consensus):
         s=''
 
-        for cnode, d in consensus.nodes_iter(data=True):
+        for cnode, d in consensus.nodes(data=True):
             if not str(cnode).startswith('_C'):
                 continue
             weight = d['weight']
             parent = None
-            parents = consensus.predecessors(cnode)
+            parents = list(consensus.predecessors(cnode))
             if len(parents) == 0:
                 pass
             elif len(parents) == 1:
@@ -1533,7 +1525,7 @@ class ConsensusDendrogramBuilder(object):
                     ' has > 1 parent: '+str(parents))
 
             successors=consensus.successors(cnode)
-            
+
             s += str([cnode, str(weight),
                 str(len(successors)), str(successors)])
             s += '\n'
